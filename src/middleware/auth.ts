@@ -1,68 +1,109 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { User, UserRole } from '../types';
+import { ApiResponse } from '../types';
 
-// Extend Request interface to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: User;
-    }
-  }
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    name: string;
+    type: 'api_key' | 'webhook';
+  };
 }
 
-// JWT Authentication middleware
-export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+// Middleware de autenticación básica para API Key
+export const authenticateApiKey = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  const apiKey = req.headers['x-api-key'] as string;
+  const expectedApiKey = process.env.API_KEY || 'norte-erp-api-key-2024';
 
-  if (!token) {
-    return res.status(401).json({
+  if (!apiKey) {
+    const response: ApiResponse = {
       success: false,
-      message: 'Access token required',
+      message: 'API Key requerida',
+      error: 'Header x-api-key es requerido',
       timestamp: new Date().toISOString()
-    });
+    };
+    res.status(401).json(response);
+    return;
   }
 
-  jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret', (err: any, user: any) => {
-    if (err) {
-      return res.status(403).json({
-        success: false,
-        message: 'Invalid or expired token',
-        timestamp: new Date().toISOString()
-      });
-    }
+  if (apiKey !== expectedApiKey) {
+    const response: ApiResponse = {
+      success: false,
+      message: 'API Key inválida',
+      error: 'API Key proporcionada no es válida',
+      timestamp: new Date().toISOString()
+    };
+    res.status(401).json(response);
+    return;
+  }
 
-    req.user = user as User;
-    next();
-  });
-};
-
-// Role-based authorization middleware
-export const authorizeRoles = (...roles: UserRole[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Insufficient permissions',
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    next();
+  req.user = {
+    id: 'api-user',
+    name: 'API User',
+    type: 'api_key'
   };
+
+  next();
 };
 
-// Admin only middleware
-export const adminOnly = authorizeRoles(UserRole.ADMIN);
+// Middleware de autenticación para webhooks (más permisivo)
+export const authenticateWebhook = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  const webhookSecret = req.headers['x-webhook-secret'] as string;
+  const expectedSecret = process.env.WEBHOOK_SECRET || 'norte-erp-webhook-secret-2024';
 
-// Manager and Admin middleware
-export const managerOrAdmin = authorizeRoles(UserRole.ADMIN, UserRole.MANAGER);
+  // Para webhooks, permitir sin autenticación en desarrollo
+  if (process.env.NODE_ENV === 'development') {
+    req.user = {
+      id: 'webhook-user',
+      name: 'Webhook User',
+      type: 'webhook'
+    };
+    next();
+    return;
+  }
+
+  if (!webhookSecret) {
+    const response: ApiResponse = {
+      success: false,
+      message: 'Webhook Secret requerido',
+      error: 'Header x-webhook-secret es requerido',
+      timestamp: new Date().toISOString()
+    };
+    res.status(401).json(response);
+    return;
+  }
+
+  if (webhookSecret !== expectedSecret) {
+    const response: ApiResponse = {
+      success: false,
+      message: 'Webhook Secret inválido',
+      error: 'Webhook Secret proporcionado no es válido',
+      timestamp: new Date().toISOString()
+    };
+    res.status(401).json(response);
+    return;
+  }
+
+  req.user = {
+    id: 'webhook-user',
+    name: 'Webhook User',
+    type: 'webhook'
+  };
+
+  next();
+};
+
+// Middleware opcional de autenticación (solo si se proporciona API Key)
+export const optionalAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  const apiKey = req.headers['x-api-key'] as string;
+  const expectedApiKey = process.env.API_KEY || 'norte-erp-api-key-2024';
+
+  if (apiKey && apiKey === expectedApiKey) {
+    req.user = {
+      id: 'api-user',
+      name: 'API User',
+      type: 'api_key'
+    };
+  }
+
+  next();
+};

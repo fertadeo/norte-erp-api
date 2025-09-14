@@ -18,8 +18,23 @@ app.use(cors({
   credentials: true
 }));
 app.use(morgan('combined')); // Logging
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ 
+  limit: '10mb',
+  type: 'application/json'
+}));
+app.use(express.urlencoded({ 
+  extended: true, 
+  limit: '10mb',
+  type: 'application/x-www-form-urlencoded'
+}));
+
+// Debug middleware for request body
+app.use((req, res, next) => {
+  if (req.method === 'PUT' || req.method === 'POST') {
+    console.log('Request body received:', JSON.stringify(req.body, null, 2));
+  }
+  next();
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {

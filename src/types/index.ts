@@ -61,29 +61,37 @@ export interface Product {
   code: string;
   name: string;
   description?: string;
-  category: string;
+  category_id?: number;
+  category_name?: string;
   price: number;
   stock: number;
-  minStock: number;
-  maxStock: number;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  min_stock: number;
+  max_stock: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // Client types
+export enum ClientType {
+  MAYORISTA = 'mayorista',
+  MINORISTA = 'minorista',
+  PERSONALIZADO = 'personalizado'
+}
+
 export interface Client {
   id: number;
   code: string;
+  client_type: ClientType;
   name: string;
   email?: string;
   phone?: string;
   address?: string;
   city?: string;
   country?: string;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // Order types

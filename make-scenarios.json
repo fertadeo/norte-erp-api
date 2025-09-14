@@ -1,0 +1,55 @@
+
+
+
+{
+    "scenarios": [
+      {
+        "name": "ERP to WooCommerce Sync",
+        "description": "Sincroniza productos del ERP a WooCommerce",
+        "trigger": {
+          "type": "cron",
+          "schedule": "0 */1 * * *"
+        },
+        "modules": [
+          {
+            "name": "Get ERP Products",
+            "type": "http",
+            "url": "{{ERP_API_URL}}/woocommerce/products",
+            "method": "GET"
+          },
+          {
+            "name": "Update WooCommerce",
+            "type": "woocommerce",
+            "action": "update_product",
+            "data": "{{1.products}}"
+          }
+        ]
+      },
+      {
+        "name": "WooCommerce to ERP Stock Sync",
+        "description": "Sincroniza stock de WooCommerce al ERP",
+        "trigger": {
+          "type": "webhook",
+          "url": "{{WOOCOMMERCE_URL}}/wp-json/wc/v3/webhooks"
+        },
+        "modules": [
+          {
+            "name": "Get WooCommerce Product",
+            "type": "woocommerce",
+            "action": "get_product",
+            "id": "{{trigger.id}}"
+          },
+          {
+            "name": "Update ERP Stock",
+            "type": "http",
+            "url": "{{ERP_API_URL}}/woocommerce/products/{{1.sku}}/stock",
+            "method": "PUT",
+            "body": {
+              "stock_quantity": "{{1.stock_quantity}}",
+              "operation": "set"
+            }
+          }
+        ]
+      }
+    ]
+  }
