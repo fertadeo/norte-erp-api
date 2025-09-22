@@ -41,7 +41,11 @@ export enum UserRole {
   ADMIN = 'admin',
   MANAGER = 'manager',
   EMPLOYEE = 'employee',
-  VIEWER = 'viewer'
+  VIEWER = 'viewer',
+  GERENCIA = 'gerencia',
+  VENTAS = 'ventas',
+  LOGISTICA = 'logistica',
+  FINANZAS = 'finanzas'
 }
 
 // Dashboard types

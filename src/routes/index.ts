@@ -4,6 +4,7 @@ import clientRoutes from './clients';
 import productRoutes from './products';
 import integrationRoutes from './integration';
 import wooCommerceRoutes from './woocommerce';
+import authRoutes from './auth';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.use('/clients', clientRoutes);
 router.use('/products', productRoutes);
 router.use('/integration', integrationRoutes);
 router.use('/woocommerce', wooCommerceRoutes);
+router.use('/auth', authRoutes);
 
 // Health check for API routes
 router.get('/', (req, res) => {
@@ -25,6 +27,7 @@ router.get('/', (req, res) => {
       products: '/api/products',
       integration: '/api/integration',
       woocommerce: '/api/woocommerce',
+      auth: '/api/auth',
       // Future routes will be added here
       stock: '/api/products/stock (available)',
       orders: '/api/orders (coming soon)',

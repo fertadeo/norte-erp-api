@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { testConnection } from './config/database';
+import cookieParser from 'cookie-parser';
 
 // Load environment variables
 dotenv.config();
@@ -27,6 +28,7 @@ app.use(express.urlencoded({
   limit: '10mb',
   type: 'application/x-www-form-urlencoded'
 }));
+app.use(cookieParser());
 
 // Debug middleware for request body
 app.use((req, res, next) => {
