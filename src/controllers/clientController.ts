@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { executeQuery } from '../config/database';
-import { ApiResponse, Client, ClientType } from '../types';
+import { ApiResponse, Client, ClientType, SalesChannel } from '../types';
 import { validationResult } from 'express-validator';
 
 export class ClientController {
@@ -82,6 +82,13 @@ export class ClientController {
         queryParams.push(city);
       }
       
+      // Sales channel filter
+      const { sales_channel } = req.query;
+      if (sales_channel) {
+        whereConditions.push('sales_channel = ?');
+        queryParams.push(sales_channel);
+      }
+      
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
       
       // Get total count
@@ -98,6 +105,7 @@ export class ClientController {
           id,
           code,
           client_type,
+          sales_channel,
           name,
           email,
           phone,
@@ -175,6 +183,7 @@ export class ClientController {
           id,
           code,
           client_type,
+          sales_channel,
           name,
           email,
           phone,
@@ -238,7 +247,8 @@ export class ClientController {
 
       const { 
         name, 
-        client_type = ClientType.MINORISTA, 
+        client_type = ClientType.MINORISTA,
+        sales_channel = SalesChannel.MANUAL,
         email, 
         phone, 
         address, 
@@ -246,17 +256,17 @@ export class ClientController {
         country = 'Argentina' 
       } = req.body;
       
-      console.log('Creating client with type:', client_type);
+      console.log('Creating client with type:', client_type, 'and sales channel:', sales_channel);
       
       // Generate automatic code based on client type
       const code = await this.generateClientCode(client_type);
       
       const insertQuery = `
-        INSERT INTO clients (code, client_type, name, email, phone, address, city, country, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        INSERT INTO clients (code, client_type, sales_channel, name, email, phone, address, city, country, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
       `;
       
-      const result = await executeQuery(insertQuery, [code, client_type, name, email, phone, address, city, country]);
+      const result = await executeQuery(insertQuery, [code, client_type, sales_channel, name, email, phone, address, city, country]);
       
       // Get the created client
       const [newClient] = await executeQuery(
@@ -305,9 +315,9 @@ export class ClientController {
       }
 
       const { id } = req.params;
-      const { code, client_type, name, email, phone, address, city, country, is_active } = req.body;
+      const { code, client_type, sales_channel, name, email, phone, address, city, country, is_active } = req.body;
       
-      console.log('Extracted fields:', { code, name, email, phone, address, city, country, is_active });
+      console.log('Extracted fields:', { code, client_type, sales_channel, name, email, phone, address, city, country, is_active });
       
       // Check if client exists
       const [existingClient] = await executeQuery('SELECT id FROM clients WHERE id = ?', [id]);
@@ -349,6 +359,10 @@ export class ClientController {
       if (client_type !== undefined) {
         updateFields.push('client_type = ?');
         updateValues.push(client_type);
+      }
+      if (sales_channel !== undefined) {
+        updateFields.push('sales_channel = ?');
+        updateValues.push(sales_channel);
       }
       if (name !== undefined) {
         updateFields.push('name = ?');

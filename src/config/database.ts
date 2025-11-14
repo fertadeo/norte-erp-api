@@ -1,4 +1,4 @@
-import mysql from 'mysql2/promise';
+import mysql, { Pool, PoolConnection } from 'mysql2/promise';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -28,7 +28,7 @@ const dbConfig: DatabaseConfig = {
 };
 
 // Create connection pool
-const pool = mysql.createPool(dbConfig);
+const pool: Pool = mysql.createPool(dbConfig);
 
 // Test database connection
 export const testConnection = async (): Promise<boolean> => {
@@ -44,9 +44,14 @@ export const testConnection = async (): Promise<boolean> => {
 };
 
 // Execute query with error handling
-export const executeQuery = async (query: string, params?: any[]): Promise<any> => {
+export const executeQuery = async (
+  query: string,
+  params: any[] = [],
+  connection?: PoolConnection
+): Promise<any> => {
   try {
-    const [results] = await pool.execute(query, params);
+    const executor: Pool | PoolConnection = connection ?? pool;
+    const [results] = await executor.execute(query, params);
     return results;
   } catch (error) {
     console.error('Database query error:', error);

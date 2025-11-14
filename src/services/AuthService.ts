@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { UserRepository, DBUser } from "../repositories/UserRepository";
 import { executeQuery } from "../config/database";
 
-const ACCESS_TOKEN_TTL = (process.env.JWT_ACCESS_EXPIRES_IN || "15m") as jwt.SignOptions["expiresIn"];
+const ACCESS_TOKEN_TTL = (process.env.JWT_ACCESS_EXPIRES_IN || "24h") as jwt.SignOptions["expiresIn"];
 const REFRESH_TOKEN_TTL = (process.env.JWT_REFRESH_EXPIRES_IN || "7d") as jwt.SignOptions["expiresIn"];
 const JWT_SECRET = (process.env.JWT_SECRET || "dev-secret-change") as jwt.Secret;
 const JWT_REFRESH_SECRET = (process.env.JWT_REFRESH_SECRET || (JWT_SECRET as string) + "-refresh") as jwt.Secret;

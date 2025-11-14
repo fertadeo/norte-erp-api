@@ -48,10 +48,12 @@ export const authenticateApiKey = (req: AuthenticatedRequest, res: Response, nex
 // Middleware de autenticación para webhooks (más permisivo)
 export const authenticateWebhook = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
   const webhookSecret = req.headers['x-webhook-secret'] as string;
+  const apiKey = req.headers['x-api-key'] as string;
   const expectedSecret = process.env.WEBHOOK_SECRET || 'norte-erp-webhook-secret-2024';
+  const expectedApiKey = process.env.API_KEY || 'norte-erp-api-key-2024';
 
-  // Para webhooks, permitir sin autenticación en desarrollo
-  if (process.env.NODE_ENV === 'development') {
+  // Para webhooks, permitir sin autenticación en desarrollo, testing o si NODE_ENV no está configurado (entorno local)
+  if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
     req.user = {
       id: 'webhook-user',
       name: 'Webhook User',
@@ -61,35 +63,37 @@ export const authenticateWebhook = (req: AuthenticatedRequest, res: Response, ne
     return;
   }
 
-  if (!webhookSecret) {
-    const response: ApiResponse = {
-      success: false,
-      message: 'Webhook Secret requerido',
-      error: 'Header x-webhook-secret es requerido',
-      timestamp: new Date().toISOString()
+  // Permitir autenticación con API Key (para facilitar pruebas desde N8N)
+  if (apiKey && apiKey === expectedApiKey) {
+    req.user = {
+      id: 'webhook-user',
+      name: 'Webhook User',
+      type: 'webhook'
     };
-    res.status(401).json(response);
+    next();
     return;
   }
 
-  if (webhookSecret !== expectedSecret) {
-    const response: ApiResponse = {
-      success: false,
-      message: 'Webhook Secret inválido',
-      error: 'Webhook Secret proporcionado no es válido',
-      timestamp: new Date().toISOString()
+  // O permitir autenticación con Webhook Secret
+  if (webhookSecret && webhookSecret === expectedSecret) {
+    req.user = {
+      id: 'webhook-user',
+      name: 'Webhook User',
+      type: 'webhook'
     };
-    res.status(401).json(response);
+    next();
     return;
   }
 
-  req.user = {
-    id: 'webhook-user',
-    name: 'Webhook User',
-    type: 'webhook'
+  // Si no hay autenticación válida, rechazar
+  const response: ApiResponse = {
+    success: false,
+    message: 'Autenticación requerida',
+    error: 'Se requiere header x-api-key o x-webhook-secret válido',
+    timestamp: new Date().toISOString()
   };
-
-  next();
+  res.status(401).json(response);
+  return;
 };
 
 // Middleware opcional de autenticación (solo si se proporciona API Key)

@@ -1,11 +1,16 @@
 import { body } from 'express-validator';
-import { ClientType } from '../types';
+import { ClientType, SalesChannel } from '../types';
 
 export const createClientValidation = [
   body('client_type')
     .optional()
     .isIn(Object.values(ClientType))
     .withMessage(`Client type must be one of: ${Object.values(ClientType).join(', ')}`),
+  
+  body('sales_channel')
+    .optional()
+    .isIn(Object.values(SalesChannel))
+    .withMessage(`Sales channel must be one of: ${Object.values(SalesChannel).join(', ')}`),
     
   body('name')
     .notEmpty()
@@ -51,6 +56,11 @@ export const updateClientValidation = [
     .optional()
     .isIn(Object.values(ClientType))
     .withMessage(`Client type must be one of: ${Object.values(ClientType).join(', ')}`),
+  
+  body('sales_channel')
+    .optional()
+    .isIn(Object.values(SalesChannel))
+    .withMessage(`Sales channel must be one of: ${Object.values(SalesChannel).join(', ')}`),
     
   body('code')
     .optional()

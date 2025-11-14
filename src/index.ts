@@ -19,9 +19,12 @@ app.use(cors({
   credentials: true
 }));
 app.use(morgan('combined')); // Logging
+
+// Middleware para parsear JSON de manera más flexible
 app.use(express.json({ 
   limit: '10mb',
-  type: 'application/json'
+  strict: false, // Permitir JSON no estricto
+  type: ['application/json', 'application/*+json', 'text/json', '*/*'] // Aceptar diferentes tipos
 }));
 app.use(express.urlencoded({ 
   extended: true, 
@@ -30,10 +33,19 @@ app.use(express.urlencoded({
 }));
 app.use(cookieParser());
 
-// Debug middleware for request body
+// Debug middleware for request body (mover antes de las rutas para capturar todos los requests)
 app.use((req, res, next) => {
   if (req.method === 'PUT' || req.method === 'POST') {
-    console.log('Request body received:', JSON.stringify(req.body, null, 2));
+    console.log('=== REQUEST DEBUG ===');
+    console.log('Method:', req.method);
+    console.log('URL:', req.url);
+    console.log('Content-Type:', req.get('content-type'));
+    console.log('Body received:', JSON.stringify(req.body, null, 2));
+    console.log('Body type:', typeof req.body);
+    console.log('Body is array?', Array.isArray(req.body));
+    if (req.body) {
+      console.log('Body keys:', Object.keys(req.body));
+    }
   }
   next();
 });

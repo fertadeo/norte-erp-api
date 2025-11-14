@@ -37,4 +37,10 @@ router.post('/webhook/woocommerce',
   integrationController.wooCommerceWebhook.bind(integrationController)
 );
 
+// POST /api/integration/orders/woocommerce-mayorista - Recibir pedido mayorista desde WooCommerce/N8N
+router.post('/orders/woocommerce-mayorista',
+  authenticateWebhook,
+  integrationController.receiveWholesaleOrder.bind(integrationController)
+);
+
 export default router;
