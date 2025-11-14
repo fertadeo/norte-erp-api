@@ -23,6 +23,8 @@ export interface AccruedExpense {
   has_invoice: boolean;
   invoice_id?: number;
   invoice_number?: string;
+  paid_amount: number; // Calculado: suma de pagos asociados
+  remaining_amount: number; // Calculado: amount - paid_amount
   notes?: string;
   created_by?: number;
   created_at: string;

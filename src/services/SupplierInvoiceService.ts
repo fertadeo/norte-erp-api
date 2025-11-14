@@ -93,7 +93,7 @@ export class SupplierInvoiceService {
     // Calculate totals if not provided
     if (!data.subtotal || !data.total_amount) {
       const subtotal = data.items.reduce((sum, item) => {
-        const itemTotal = item.total_price || (item.quantity * item.unit_price);
+        const itemTotal = item.quantity * item.unit_price;
         return sum + itemTotal;
       }, 0);
 
@@ -112,12 +112,12 @@ export class SupplierInvoiceService {
     if (supplierType === 'productivo' || supplierType === 'no_productivo') {
       await this.accountRepository.createMovement({
         supplier_id: data.supplier_id,
-        movement_type: 'invoice',
+        movement_type: 'debt',
         type: 'debit',
         amount: invoice.total_amount,
         reference_type: 'invoice',
         reference_id: invoice.id,
-        due_date: invoice.due_date || null,
+        due_date: invoice.due_date || undefined,
         status: 'pending',
         description: `Factura ${invoice.invoice_number}`
       });
