@@ -110,7 +110,7 @@ export class WooCommerceController {
             await this.productService.updateProduct(existingProduct.id, {
               name: name || existingProduct.name,
               price: price || existingProduct.price,
-              stock: stock_quantity || existingProduct.stock,
+              stock: stock_quantity !== null && stock_quantity !== undefined ? stock_quantity : existingProduct.stock,
               is_active: status === 'publish'
             });
             
@@ -126,7 +126,7 @@ export class WooCommerceController {
               code: sku,
               name: name || `Producto ${sku}`,
               price: price || 0,
-              stock: stock_quantity || 0
+              stock: stock_quantity !== null && stock_quantity !== undefined ? stock_quantity : 0
             });
             
             results.push({
