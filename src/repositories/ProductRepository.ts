@@ -91,7 +91,14 @@ export class ProductRepository {
     `;
     
     const result = await executeQuery(insertQuery, [
-      code, name, description, category_id, price, stock, min_stock, max_stock
+      code, 
+      name, 
+      description ?? null, 
+      category_id ?? null, 
+      price, 
+      stock, 
+      min_stock, 
+      max_stock
     ]);
     
     const newProduct = await executeQuery('SELECT * FROM products WHERE id = ?', [result.insertId]);
@@ -106,7 +113,8 @@ export class ProductRepository {
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined) {
         fields.push(`${key} = ?`);
-        values.push(value);
+        // Convertir undefined a null para MySQL
+        values.push(value === undefined ? null : value);
       }
     });
     
