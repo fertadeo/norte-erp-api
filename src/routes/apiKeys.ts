@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { ApiKeyController } from '../controllers/apiKeyController';
 import { authenticateJWT, authorizeRoles } from '../middleware/jwt';
 import { body, param, query } from 'express-validator';
@@ -94,7 +94,7 @@ router.get(
     query('search').optional().isString().withMessage('search debe ser una cadena de texto')
   ],
   validate,
-  (req, res) => apiKeyController.getAllApiKeys(req as any, res)
+  (req: Request, res: Response) => apiKeyController.getAllApiKeys(req as any, res)
 );
 
 // GET /api/api-keys/:id - Obtener una API Key por ID
@@ -102,7 +102,7 @@ router.get(
   '/:id',
   idValidation,
   validate,
-  (req, res) => apiKeyController.getApiKeyById(req as any, res)
+  (req: Request, res: Response) => apiKeyController.getApiKeyById(req as any, res)
 );
 
 // POST /api/api-keys - Crear una nueva API Key
@@ -110,7 +110,7 @@ router.post(
   '/',
   createApiKeyValidation,
   validate,
-  (req, res) => apiKeyController.createApiKey(req as any, res)
+  (req: Request, res: Response) => apiKeyController.createApiKey(req as any, res)
 );
 
 // PUT /api/api-keys/:id - Actualizar una API Key
@@ -118,7 +118,7 @@ router.put(
   '/:id',
   updateApiKeyValidation,
   validate,
-  (req, res) => apiKeyController.updateApiKey(req as any, res)
+  (req: Request, res: Response) => apiKeyController.updateApiKey(req as any, res)
 );
 
 // DELETE /api/api-keys/:id - Desactivar una API Key (soft delete)
@@ -126,7 +126,7 @@ router.delete(
   '/:id',
   idValidation,
   validate,
-  (req, res) => apiKeyController.deactivateApiKey(req as any, res)
+  (req: Request, res: Response) => apiKeyController.deactivateApiKey(req as any, res)
 );
 
 // PUT /api/api-keys/:id/activate - Activar una API Key
@@ -134,7 +134,7 @@ router.put(
   '/:id/activate',
   idValidation,
   validate,
-  (req, res) => apiKeyController.activateApiKey(req as any, res)
+  (req: Request, res: Response) => apiKeyController.activateApiKey(req as any, res)
 );
 
 // DELETE /api/api-keys/:id/permanent - Eliminar permanentemente una API Key
@@ -142,7 +142,7 @@ router.delete(
   '/:id/permanent',
   idValidation,
   validate,
-  (req, res) => apiKeyController.deleteApiKey(req as any, res)
+  (req: Request, res: Response) => apiKeyController.deleteApiKey(req as any, res)
 );
 
 export default router;

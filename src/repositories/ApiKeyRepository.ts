@@ -318,7 +318,7 @@ export class ApiKeyRepository {
       key_hash: row.key_hash,
       description: row.description || undefined,
       created_by: row.created_by || undefined,
-      is_active: row.is_active === 1 || row.is_active === true,
+      is_active: Boolean(Number(row.is_active) === 1 || row.is_active === true),
       last_used_at: row.last_used_at || undefined,
       expires_at: row.expires_at || undefined,
       rate_limit_per_minute: row.rate_limit_per_minute,
