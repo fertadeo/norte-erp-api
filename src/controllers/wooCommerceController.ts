@@ -99,7 +99,7 @@ export class WooCommerceController {
       const results = [];
       
       for (const product of products) {
-        const { sku, stock_quantity, price, name, status } = product;
+        const { sku, stock_quantity, price, name, status, description } = product;
         
         try {
           // Buscar producto existente
@@ -109,6 +109,7 @@ export class WooCommerceController {
             // Actualizar producto existente
             await this.productService.updateProduct(existingProduct.id, {
               name: name || existingProduct.name,
+              description: description !== undefined ? description : existingProduct.description,
               price: price || existingProduct.price,
               stock: stock_quantity !== null && stock_quantity !== undefined ? stock_quantity : existingProduct.stock,
               is_active: status === 'publish'
@@ -125,6 +126,7 @@ export class WooCommerceController {
             await this.productService.createProduct({
               code: sku,
               name: name || `Producto ${sku}`,
+              description: description || undefined,
               price: price || 0,
               stock: stock_quantity !== null && stock_quantity !== undefined ? stock_quantity : 0
             });
