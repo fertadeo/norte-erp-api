@@ -1,18 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
 import { ApiResponse } from '../types';
+import { ApiKeyService } from '../services/ApiKeyService';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
     name: string;
     type: 'api_key' | 'webhook';
+    apiKeyId?: number;
   };
 }
 
 // Middleware de autenticación básica para API Key
-export const authenticateApiKey = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+// Primero intenta validar contra la base de datos, luego usa variable de entorno como fallback
+export const authenticateApiKey = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   const apiKey = req.headers['x-api-key'] as string;
-  const expectedApiKey = process.env.API_KEY || 'norte-erp-api-key-2024';
 
   if (!apiKey) {
     const response: ApiResponse = {
@@ -24,6 +26,71 @@ export const authenticateApiKey = (req: AuthenticatedRequest, res: Response, nex
     res.status(401).json(response);
     return;
   }
+
+  try {
+    // Primero intentar validar contra la base de datos
+    const apiKeyService = new ApiKeyService();
+    const validatedKey = await apiKeyService.validateApiKey(apiKey);
+
+    if (validatedKey) {
+      // Validar IP permitida si está configurada
+      const clientIp = req.ip || req.socket.remoteAddress || '';
+      if (validatedKey.allowed_ips) {
+        const allowedIps = validatedKey.allowed_ips.split(',').map(ip => ip.trim());
+        if (!allowedIps.includes(clientIp) && !allowedIps.includes('*')) {
+          const response: ApiResponse = {
+            success: false,
+            message: 'IP no autorizada',
+            error: `Tu IP (${clientIp}) no está autorizada para usar esta API Key`,
+            timestamp: new Date().toISOString()
+          };
+          res.status(403).json(response);
+          return;
+        }
+      }
+
+      // Validar expiración
+      if (validatedKey.expires_at) {
+        const expiryDate = new Date(validatedKey.expires_at);
+        if (expiryDate <= new Date()) {
+          const response: ApiResponse = {
+            success: false,
+            message: 'API Key expirada',
+            error: 'Esta API Key ha expirado',
+            timestamp: new Date().toISOString()
+          };
+          res.status(401).json(response);
+          return;
+        }
+      }
+
+      req.user = {
+        id: `api-key-${validatedKey.id}`,
+        name: validatedKey.key_name,
+        type: 'api_key',
+        apiKeyId: validatedKey.id
+      };
+
+      // Registrar uso (asíncrono, no bloquea la respuesta)
+      apiKeyService.logApiKeyUsage(validatedKey.id, {
+        endpoint: req.path,
+        method: req.method,
+        ip_address: clientIp,
+        user_agent: req.get('user-agent')
+      }).catch(err => {
+        console.error('Error al registrar uso de API Key:', err);
+      });
+
+      next();
+      return;
+    }
+  } catch (error) {
+    // Si hay error al validar contra BD, continuar con fallback
+    console.error('Error al validar API Key contra BD:', error);
+  }
+
+  // Fallback: validar contra variable de entorno (compatibilidad hacia atrás)
+  const expectedApiKey = process.env.API_KEY || 'norte-erp-api-key-2024';
 
   if (apiKey !== expectedApiKey) {
     const response: ApiResponse = {
@@ -38,7 +105,7 @@ export const authenticateApiKey = (req: AuthenticatedRequest, res: Response, nex
 
   req.user = {
     id: 'api-user',
-    name: 'API User',
+    name: 'API User (Legacy)',
     type: 'api_key'
   };
 
@@ -46,7 +113,7 @@ export const authenticateApiKey = (req: AuthenticatedRequest, res: Response, nex
 };
 
 // Middleware de autenticación para webhooks (más permisivo)
-export const authenticateWebhook = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+export const authenticateWebhook = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   const webhookSecret = req.headers['x-webhook-secret'] as string;
   const apiKey = req.headers['x-api-key'] as string;
   const expectedSecret = process.env.WEBHOOK_SECRET || 'norte-erp-webhook-secret-2024';
@@ -63,15 +130,37 @@ export const authenticateWebhook = (req: AuthenticatedRequest, res: Response, ne
     return;
   }
 
-  // Permitir autenticación con API Key (para facilitar pruebas desde N8N)
-  if (apiKey && apiKey === expectedApiKey) {
-    req.user = {
-      id: 'webhook-user',
-      name: 'Webhook User',
-      type: 'webhook'
-    };
-    next();
-    return;
+  // Intentar validar API Key contra base de datos primero
+  if (apiKey) {
+    try {
+      const apiKeyService = new ApiKeyService();
+      const validatedKey = await apiKeyService.validateApiKey(apiKey);
+      
+      if (validatedKey && validatedKey.is_active) {
+        req.user = {
+          id: `webhook-api-key-${validatedKey.id}`,
+          name: validatedKey.key_name,
+          type: 'webhook',
+          apiKeyId: validatedKey.id
+        };
+        next();
+        return;
+      }
+    } catch (error) {
+      // Continuar con fallback si hay error
+      console.error('Error al validar API Key para webhook:', error);
+    }
+
+    // Fallback: validar contra variable de entorno
+    if (apiKey === expectedApiKey) {
+      req.user = {
+        id: 'webhook-user',
+        name: 'Webhook User',
+        type: 'webhook'
+      };
+      next();
+      return;
+    }
   }
 
   // O permitir autenticación con Webhook Secret
@@ -97,16 +186,39 @@ export const authenticateWebhook = (req: AuthenticatedRequest, res: Response, ne
 };
 
 // Middleware opcional de autenticación (solo si se proporciona API Key)
-export const optionalAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+export const optionalAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   const apiKey = req.headers['x-api-key'] as string;
-  const expectedApiKey = process.env.API_KEY || 'norte-erp-api-key-2024';
 
-  if (apiKey && apiKey === expectedApiKey) {
-    req.user = {
-      id: 'api-user',
-      name: 'API User',
-      type: 'api_key'
-    };
+  if (apiKey) {
+    try {
+      // Intentar validar contra base de datos
+      const apiKeyService = new ApiKeyService();
+      const validatedKey = await apiKeyService.validateApiKey(apiKey);
+      
+      if (validatedKey && validatedKey.is_active) {
+        req.user = {
+          id: `api-key-${validatedKey.id}`,
+          name: validatedKey.key_name,
+          type: 'api_key',
+          apiKeyId: validatedKey.id
+        };
+        next();
+        return;
+      }
+    } catch (error) {
+      // Continuar con fallback si hay error
+      console.error('Error al validar API Key opcional:', error);
+    }
+
+    // Fallback: validar contra variable de entorno
+    const expectedApiKey = process.env.API_KEY || 'norte-erp-api-key-2024';
+    if (apiKey === expectedApiKey) {
+      req.user = {
+        id: 'api-user',
+        name: 'API User (Legacy)',
+        type: 'api_key'
+      };
+    }
   }
 
   next();
