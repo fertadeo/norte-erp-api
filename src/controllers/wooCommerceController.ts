@@ -99,21 +99,78 @@ export class WooCommerceController {
       const results = [];
       
       for (const product of products) {
-        const { sku, stock_quantity, price, name, status, description } = product;
+        const { sku, stock_quantity, price, name, status, description, images } = product;
+        
+        // DEBUG: Agregar log para ver qué está llegando
+        console.log(`[DEBUG] Producto ${sku} - images recibido:`, JSON.stringify(images));
+        console.log(`[DEBUG] Producto ${sku} - tipo de images:`, typeof images, Array.isArray(images));
+        
+        // Extraer solo las URLs de las imágenes
+        let imageUrls: string[] | undefined;
+        if (images) {
+          if (Array.isArray(images)) {
+            // Si es un array de objetos con 'src', extraer las URLs
+            imageUrls = images
+              .map((img: any) => {
+                if (typeof img === 'string') {
+                  return img; // Ya es una URL
+                } else if (img && typeof img === 'object' && img.src) {
+                  return img.src; // Extraer la URL del objeto
+                }
+                return null;
+              })
+              .filter((url: string | null): url is string => url !== null && url !== undefined);
+            
+            // Si no hay URLs válidas, establecer como undefined
+            if (imageUrls.length === 0) {
+              imageUrls = undefined;
+            }
+          } else if (typeof images === 'string') {
+            // Si es un string (URL única), convertir a array
+            imageUrls = [images];
+          }
+        }
+        
+        // DEBUG: Ver qué se va a guardar
+        console.log(`[DEBUG] Producto ${sku} - imageUrls procesado:`, JSON.stringify(imageUrls));
         
         try {
           // Buscar producto existente
           const existingProduct = await this.productService.getProductByCode(sku);
           
           if (existingProduct) {
+            // DEBUG: Ver qué imágenes tiene actualmente
+            console.log(`[DEBUG] Producto ${sku} - existingProduct.images:`, JSON.stringify(existingProduct.images));
+            
             // Actualizar producto existente
-            await this.productService.updateProduct(existingProduct.id, {
+            const updateData: {
+              name: string;
+              description?: string;
+              price: number;
+              stock: number;
+              is_active: boolean;
+              images?: string[];
+            } = {
               name: name || existingProduct.name,
               description: description !== undefined ? description : existingProduct.description,
               price: price || existingProduct.price,
               stock: stock_quantity !== null && stock_quantity !== undefined ? stock_quantity : existingProduct.stock,
               is_active: status === 'publish'
-            });
+            };
+            
+            // Manejar imágenes: solo incluir si hay URLs válidas, o undefined para limpiar/mantener
+            if (imageUrls !== undefined && imageUrls.length > 0) {
+              updateData.images = imageUrls;
+            } else if (imageUrls !== undefined) {
+              // Si es array vacío, establecer como undefined para limpiar
+              updateData.images = undefined;
+            }
+            // Si imageUrls es undefined, no incluir images en updateData para mantener las existentes
+            
+            // DEBUG: Ver qué se va a actualizar
+            console.log(`[DEBUG] Producto ${sku} - updateData.images:`, JSON.stringify(updateData.images));
+            
+            await this.productService.updateProduct(existingProduct.id, updateData);
             
             results.push({
               sku,
@@ -123,13 +180,19 @@ export class WooCommerceController {
             });
           } else {
             // Crear nuevo producto
-            await this.productService.createProduct({
+            const createData = {
               code: sku,
               name: name || `Producto ${sku}`,
               description: description || undefined,
               price: price || 0,
-              stock: stock_quantity !== null && stock_quantity !== undefined ? stock_quantity : 0
-            });
+              stock: stock_quantity !== null && stock_quantity !== undefined ? stock_quantity : 0,
+              images: imageUrls
+            };
+            
+            // DEBUG: Ver qué se va a crear
+            console.log(`[DEBUG] Producto ${sku} - createData.images:`, JSON.stringify(createData.images));
+            
+            await this.productService.createProduct(createData);
             
             results.push({
               sku,
@@ -139,6 +202,7 @@ export class WooCommerceController {
             });
           }
         } catch (error) {
+          console.error(`[ERROR] Producto ${sku} - Error:`, error);
           results.push({
             sku,
             action: 'error',

@@ -72,6 +72,7 @@ export interface Product {
   min_stock: number;
   max_stock: number;
   is_active: boolean;
+  images?: string[]; // Array de URLs de imágenes desde WooCommerce
   created_at: string;
   updated_at: string;
 }

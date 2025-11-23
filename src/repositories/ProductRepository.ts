@@ -24,6 +24,7 @@ export class ProductRepository {
         p.min_stock,
         p.max_stock,
         p.is_active,
+        p.images,
         p.created_at,
         p.updated_at
       FROM products p
@@ -33,10 +34,16 @@ export class ProductRepository {
     
     const products = await executeQuery(productsQuery);
     
-    // Contar total
-    const total = products.length;
+    // Parsear JSON de imágenes
+    const parsedProducts = products.map((product: any) => ({
+      ...product,
+      images: product.images ? (typeof product.images === 'string' ? JSON.parse(product.images) : product.images) : null
+    }));
     
-    return { products, total };
+    // Contar total
+    const total = parsedProducts.length;
+    
+    return { products: parsedProducts, total };
   }
 
   // Obtener producto por ID
@@ -54,6 +61,7 @@ export class ProductRepository {
         p.min_stock,
         p.max_stock,
         p.is_active,
+        p.images,
         p.created_at,
         p.updated_at
       FROM products p
@@ -62,14 +70,26 @@ export class ProductRepository {
     `;
     
     const product = await executeQuery(query, [id]);
-    return product[0] || null;
+    if (!product[0]) return null;
+    
+    // Parsear JSON de imágenes
+    return {
+      ...product[0],
+      images: product[0].images ? (typeof product[0].images === 'string' ? JSON.parse(product[0].images) : product[0].images) : null
+    };
   }
 
   // Obtener producto por código
   async findByCode(code: string): Promise<Product | null> {
     const query = 'SELECT * FROM products WHERE code = ?';
     const product = await executeQuery(query, [code]);
-    return product[0] || null;
+    if (!product[0]) return null;
+    
+    // Parsear JSON de imágenes
+    return {
+      ...product[0],
+      images: product[0].images ? (typeof product[0].images === 'string' ? JSON.parse(product[0].images) : product[0].images) : null
+    };
   }
 
   // Crear producto
@@ -82,12 +102,13 @@ export class ProductRepository {
       price,
       stock = 0,
       min_stock = 0,
-      max_stock = 1000
+      max_stock = 1000,
+      images
     } = data;
     
     const insertQuery = `
-      INSERT INTO products (code, name, description, category_id, price, stock, min_stock, max_stock, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+      INSERT INTO products (code, name, description, category_id, price, stock, min_stock, max_stock, is_active, images)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
     `;
     
     const result = await executeQuery(insertQuery, [
@@ -98,11 +119,18 @@ export class ProductRepository {
       price, 
       stock, 
       min_stock, 
-      max_stock
+      max_stock,
+      images ? JSON.stringify(images) : null
     ]);
     
     const newProduct = await executeQuery('SELECT * FROM products WHERE id = ?', [result.insertId]);
-    return newProduct[0];
+    if (!newProduct[0]) throw new Error('Error al crear producto');
+    
+    // Parsear JSON de imágenes
+    return {
+      ...newProduct[0],
+      images: newProduct[0].images ? (typeof newProduct[0].images === 'string' ? JSON.parse(newProduct[0].images) : newProduct[0].images) : null
+    };
   }
 
   // Actualizar producto
@@ -110,11 +138,31 @@ export class ProductRepository {
     const fields: string[] = [];
     const values = [];
     
+    // DEBUG: Ver qué datos están llegando
+    console.log(`[DEBUG REPO] Update producto ${id} - data recibido:`, JSON.stringify(data));
+    
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined) {
         fields.push(`${key} = ?`);
-        // Convertir undefined a null para MySQL
-        values.push(value === undefined ? null : value);
+        // Convertir arrays de imágenes a JSON string
+        if (key === 'images') {
+          if (Array.isArray(value)) {
+            const jsonValue = JSON.stringify(value);
+            console.log(`[DEBUG REPO] Guardando images como JSON:`, jsonValue);
+            values.push(jsonValue);
+          } else if (value === null) {
+            console.log(`[DEBUG REPO] Guardando images como NULL`);
+            values.push(null);
+          } else {
+            console.log(`[DEBUG REPO] images no es array ni null, valor:`, value, typeof value);
+            values.push(value === undefined ? null : value);
+          }
+        } else {
+          // Convertir undefined a null para MySQL
+          values.push(value === undefined ? null : value);
+        }
+      } else {
+        console.log(`[DEBUG REPO] Campo ${key} es undefined, no se incluirá en UPDATE`);
       }
     });
     
@@ -125,10 +173,30 @@ export class ProductRepository {
     values.push(id);
     
     const updateQuery = `UPDATE products SET ${fields.join(', ')} WHERE id = ?`;
+    console.log(`[DEBUG REPO] Query SQL:`, updateQuery);
+    console.log(`[DEBUG REPO] Valores:`, values.map((v: any, i: number) => {
+      if (i === values.length - 1) {
+        return `id=${v}`;
+      }
+      const fieldName = fields[i] || 'unknown';
+      if (typeof v === 'string' && v.length > 100) {
+        return `${fieldName}=${v.substring(0, 100)}...`;
+      }
+      return `${fieldName}=${v}`;
+    }));
+    
     await executeQuery(updateQuery, values);
     
     const updatedProduct = await executeQuery('SELECT * FROM products WHERE id = ?', [id]);
-    return updatedProduct[0];
+    if (!updatedProduct[0]) throw new Error('Producto no encontrado después de actualizar');
+    
+    console.log(`[DEBUG REPO] Producto actualizado - images en BD:`, updatedProduct[0].images);
+    
+    // Parsear JSON de imágenes
+    return {
+      ...updatedProduct[0],
+      images: updatedProduct[0].images ? (typeof updatedProduct[0].images === 'string' ? JSON.parse(updatedProduct[0].images) : updatedProduct[0].images) : null
+    };
   }
 
   // Actualizar stock
@@ -149,7 +217,13 @@ export class ProductRepository {
     await executeQuery('UPDATE products SET stock = ? WHERE id = ?', [newStock, id]);
     
     const updatedProduct = await executeQuery('SELECT * FROM products WHERE id = ?', [id]);
-    return updatedProduct[0];
+    if (!updatedProduct[0]) throw new Error('Producto no encontrado después de actualizar stock');
+    
+    // Parsear JSON de imágenes
+    return {
+      ...updatedProduct[0],
+      images: updatedProduct[0].images ? (typeof updatedProduct[0].images === 'string' ? JSON.parse(updatedProduct[0].images) : updatedProduct[0].images) : null
+    };
   }
 
   // Obtener productos con stock bajo

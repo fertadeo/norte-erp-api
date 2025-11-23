@@ -9,6 +9,7 @@ export interface Product {
   min_stock: number;
   max_stock: number;
   is_active: boolean;
+  images?: string[]; // Array de URLs de imágenes desde WooCommerce
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +27,7 @@ export interface CreateProductData {
   stock?: number;
   min_stock?: number;
   max_stock?: number;
+  images?: string[]; // Array de URLs de imágenes desde WooCommerce
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {
