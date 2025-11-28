@@ -5,6 +5,7 @@
 export interface Order {
   id: number;
   order_number: string;
+  woocommerce_order_id?: number | null;
   client_id: number;
   status: 'pendiente_preparacion' | 'listo_despacho' | 'pagado' | 'aprobado' | 'en_proceso' | 'completado' | 'cancelado';
   total_amount: number;
@@ -51,6 +52,8 @@ export interface OrderItem {
 
 export interface CreateOrderData {
   client_id: number;
+  order_number?: string; // Número de pedido personalizado (ej: de WooCommerce)
+  woocommerce_order_id?: number; // ID del pedido en WooCommerce (para evitar duplicados)
   status?: 'pendiente_preparacion' | 'listo_despacho' | 'pagado' | 'aprobado';
   delivery_date?: string;
   delivery_address?: string;

@@ -109,6 +109,60 @@ export class OrderService {
         data: order,
         timestamp: new Date().toISOString()
       };
+    } catch (error) {
+      console.error('Error getting order by number:', error);
+      return {
+        success: false,
+        message: 'Error al obtener pedido',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async getOrderByWooCommerceId(woocommerceOrderId: number): Promise<ApiResponse> {
+    try {
+      const order = await this.orderRepository.getOrderByWooCommerceId(woocommerceOrderId);
+
+      if (!order) {
+        return {
+          success: false,
+          message: 'Pedido no encontrado',
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Pedido obtenido exitosamente',
+        data: order,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error getting order by WooCommerce ID:', error);
+      return {
+        success: false,
+        message: 'Error al obtener pedido',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+      if (!order) {
+        return {
+          success: false,
+          message: 'Pedido no encontrado',
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Pedido obtenido exitosamente',
+        data: order,
+        timestamp: new Date().toISOString()
+      };
 
     } catch (error) {
       console.error('Error getting order by number:', error);

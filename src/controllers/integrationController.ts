@@ -335,6 +335,7 @@ export class IntegrationController {
       const {
         order_date,           // Fecha y hora del pedido
         order_number,         // Número de pedido de WooCommerce (opcional)
+        woocommerce_order_id, // ID del pedido en WooCommerce (para evitar duplicados)
         customer,             // Datos del cliente
         line_items,           // Productos del pedido
         shipping,             // Datos de envío
@@ -411,6 +412,41 @@ export class IntegrationController {
         return;
       }
 
+      // 0. Verificar si el pedido ya existe (evitar duplicados)
+      // Si viene woocommerce_order_id, buscar por ese campo
+      // Si no, buscar por order_number
+      if (woocommerce_order_id) {
+        const existingOrder = await this.orderService.getOrderByWooCommerceId(woocommerce_order_id);
+        if (existingOrder && existingOrder.success && existingOrder.data) {
+          const response: ApiResponse = {
+            success: true,
+            message: 'Pedido ya existe en el sistema',
+            data: {
+              order: existingOrder.data,
+              already_exists: true
+            },
+            timestamp: new Date().toISOString()
+          };
+          res.status(200).json(response);
+          return;
+        }
+      } else if (order_number) {
+        const existingOrder = await this.orderService.getOrderByNumber(order_number);
+        if (existingOrder && existingOrder.success && existingOrder.data) {
+          const response: ApiResponse = {
+            success: true,
+            message: 'Pedido ya existe en el sistema',
+            data: {
+              order: existingOrder.data,
+              already_exists: true
+            },
+            timestamp: new Date().toISOString()
+          };
+          res.status(200).json(response);
+          return;
+        }
+      }
+
       // 1. Buscar o crear cliente
       const client = await this.findOrCreateClient({
         email: customer.email,
@@ -466,6 +502,8 @@ export class IntegrationController {
       // 3. Preparar datos del pedido
       const orderData: CreateOrderData = {
         client_id: client.id,
+        order_number: order_number ? `WC-${order_number}` : undefined, // Prefijo WC- para identificar pedidos de WooCommerce
+        woocommerce_order_id: woocommerce_order_id || undefined,
         status: 'pendiente_preparacion',
         delivery_date: shipping?.delivery_date || order_date,
         delivery_address: shipping?.address_1 || billing?.address_1,
@@ -476,7 +514,7 @@ export class IntegrationController {
         delivery_phone: shipping?.phone || customer.phone || billing?.phone,
         transport_company: shipping?.method || null,
         transport_cost: shipping?.total ? parseFloat(shipping.total) : 0,
-        notes: `Pedido desde WooCommerce Mayorista${order_number ? ` - Order #${order_number}` : ''}${meta_data ? `\n${JSON.stringify(meta_data)}` : ''}`,
+        notes: `Pedido desde WooCommerce Mayorista${order_number ? ` - Order #${order_number}` : ''}${woocommerce_order_id ? ` (WC ID: ${woocommerce_order_id})` : ''}${meta_data ? `\n${JSON.stringify(meta_data)}` : ''}`,
         items: orderItems
       };
 

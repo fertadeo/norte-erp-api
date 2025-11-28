@@ -64,8 +64,8 @@ export class OrderRepository {
     try {
       await connection.beginTransaction();
 
-      // Generar número de pedido único
-      const orderNumber = await this.generateOrderNumber();
+      // Usar order_number personalizado si se proporciona, o generar uno automático
+      const orderNumber = data.order_number || await this.generateOrderNumber();
       
       // Convertir fecha de entrega a formato MySQL
       const deliveryDate = this.convertToMySQLDate(data.delivery_date);
@@ -73,12 +73,13 @@ export class OrderRepository {
       // Crear pedido (created_by puede ser NULL si no hay usuario)
       const [result] = await connection.execute(
         `INSERT INTO orders (
-          order_number, client_id, status, delivery_date,
+          order_number, woocommerce_order_id, client_id, status, delivery_date,
           delivery_address, delivery_city, delivery_contact, delivery_phone,
           transport_company, transport_cost, notes, created_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           orderNumber,
+          data.woocommerce_order_id || null,
           data.client_id,
           data.status || 'pendiente_preparacion',
           deliveryDate,
@@ -197,6 +198,43 @@ export class OrderRepository {
         LEFT JOIN remitos r ON o.id = r.order_id AND r.is_active = TRUE
         WHERE o.order_number = ? AND o.is_active = TRUE`,
         [orderNumber]
+      );
+
+      const orders = rows as OrderWithDetails[];
+      if (orders.length === 0) return null;
+
+      const order = orders[0];
+      
+      // Obtener items del pedido
+      order.items = await this.getOrderItems(order.id);
+
+      return order;
+
+    } catch (error) {
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  async getOrderByWooCommerceId(woocommerceOrderId: number): Promise<OrderWithDetails | null> {
+    const connection = await this.db.getConnection();
+    
+    try {
+      const [rows] = await connection.execute(
+        `SELECT 
+          o.*,
+          c.name as client_name,
+          c.code as client_code,
+          c.email as client_email,
+          c.phone as client_phone,
+          r.id as remito_id,
+          r.remito_number
+        FROM orders o
+        LEFT JOIN clients c ON o.client_id = c.id
+        LEFT JOIN remitos r ON o.id = r.order_id AND r.is_active = TRUE
+        WHERE o.woocommerce_order_id = ? AND o.is_active = TRUE`,
+        [woocommerceOrderId]
       );
 
       const orders = rows as OrderWithDetails[];

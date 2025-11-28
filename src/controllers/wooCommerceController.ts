@@ -101,10 +101,6 @@ export class WooCommerceController {
       for (const product of products) {
         const { sku, stock_quantity, price, name, status, description, images } = product;
         
-        // DEBUG: Agregar log para ver qué está llegando
-        console.log(`[DEBUG] Producto ${sku} - images recibido:`, JSON.stringify(images));
-        console.log(`[DEBUG] Producto ${sku} - tipo de images:`, typeof images, Array.isArray(images));
-        
         // Extraer solo las URLs de las imágenes
         let imageUrls: string[] | undefined;
         if (images) {
@@ -131,46 +127,20 @@ export class WooCommerceController {
           }
         }
         
-        // DEBUG: Ver qué se va a guardar
-        console.log(`[DEBUG] Producto ${sku} - imageUrls procesado:`, JSON.stringify(imageUrls));
-        
         try {
           // Buscar producto existente
           const existingProduct = await this.productService.getProductByCode(sku);
           
           if (existingProduct) {
-            // DEBUG: Ver qué imágenes tiene actualmente
-            console.log(`[DEBUG] Producto ${sku} - existingProduct.images:`, JSON.stringify(existingProduct.images));
-            
             // Actualizar producto existente
-            const updateData: {
-              name: string;
-              description?: string;
-              price: number;
-              stock: number;
-              is_active: boolean;
-              images?: string[];
-            } = {
+            await this.productService.updateProduct(existingProduct.id, {
               name: name || existingProduct.name,
               description: description !== undefined ? description : existingProduct.description,
               price: price || existingProduct.price,
               stock: stock_quantity !== null && stock_quantity !== undefined ? stock_quantity : existingProduct.stock,
-              is_active: status === 'publish'
-            };
-            
-            // Manejar imágenes: solo incluir si hay URLs válidas, o undefined para limpiar/mantener
-            if (imageUrls !== undefined && imageUrls.length > 0) {
-              updateData.images = imageUrls;
-            } else if (imageUrls !== undefined) {
-              // Si es array vacío, establecer como undefined para limpiar
-              updateData.images = undefined;
-            }
-            // Si imageUrls es undefined, no incluir images en updateData para mantener las existentes
-            
-            // DEBUG: Ver qué se va a actualizar
-            console.log(`[DEBUG] Producto ${sku} - updateData.images:`, JSON.stringify(updateData.images));
-            
-            await this.productService.updateProduct(existingProduct.id, updateData);
+              is_active: status === 'publish',
+              images: imageUrls !== undefined ? imageUrls : existingProduct.images
+            });
             
             results.push({
               sku,
@@ -180,19 +150,14 @@ export class WooCommerceController {
             });
           } else {
             // Crear nuevo producto
-            const createData = {
+            await this.productService.createProduct({
               code: sku,
               name: name || `Producto ${sku}`,
               description: description || undefined,
               price: price || 0,
               stock: stock_quantity !== null && stock_quantity !== undefined ? stock_quantity : 0,
               images: imageUrls
-            };
-            
-            // DEBUG: Ver qué se va a crear
-            console.log(`[DEBUG] Producto ${sku} - createData.images:`, JSON.stringify(createData.images));
-            
-            await this.productService.createProduct(createData);
+            });
             
             results.push({
               sku,
@@ -202,7 +167,6 @@ export class WooCommerceController {
             });
           }
         } catch (error) {
-          console.error(`[ERROR] Producto ${sku} - Error:`, error);
           results.push({
             sku,
             action: 'error',

@@ -138,31 +138,16 @@ export class ProductRepository {
     const fields: string[] = [];
     const values = [];
     
-    // DEBUG: Ver qué datos están llegando
-    console.log(`[DEBUG REPO] Update producto ${id} - data recibido:`, JSON.stringify(data));
-    
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined) {
         fields.push(`${key} = ?`);
         // Convertir arrays de imágenes a JSON string
-        if (key === 'images') {
-          if (Array.isArray(value)) {
-            const jsonValue = JSON.stringify(value);
-            console.log(`[DEBUG REPO] Guardando images como JSON:`, jsonValue);
-            values.push(jsonValue);
-          } else if (value === null) {
-            console.log(`[DEBUG REPO] Guardando images como NULL`);
-            values.push(null);
-          } else {
-            console.log(`[DEBUG REPO] images no es array ni null, valor:`, value, typeof value);
-            values.push(value === undefined ? null : value);
-          }
+        if (key === 'images' && Array.isArray(value)) {
+          values.push(JSON.stringify(value));
         } else {
           // Convertir undefined a null para MySQL
           values.push(value === undefined ? null : value);
         }
-      } else {
-        console.log(`[DEBUG REPO] Campo ${key} es undefined, no se incluirá en UPDATE`);
       }
     });
     
@@ -173,24 +158,10 @@ export class ProductRepository {
     values.push(id);
     
     const updateQuery = `UPDATE products SET ${fields.join(', ')} WHERE id = ?`;
-    console.log(`[DEBUG REPO] Query SQL:`, updateQuery);
-    console.log(`[DEBUG REPO] Valores:`, values.map((v: any, i: number) => {
-      if (i === values.length - 1) {
-        return `id=${v}`;
-      }
-      const fieldName = fields[i] || 'unknown';
-      if (typeof v === 'string' && v.length > 100) {
-        return `${fieldName}=${v.substring(0, 100)}...`;
-      }
-      return `${fieldName}=${v}`;
-    }));
-    
     await executeQuery(updateQuery, values);
     
     const updatedProduct = await executeQuery('SELECT * FROM products WHERE id = ?', [id]);
     if (!updatedProduct[0]) throw new Error('Producto no encontrado después de actualizar');
-    
-    console.log(`[DEBUG REPO] Producto actualizado - images en BD:`, updatedProduct[0].images);
     
     // Parsear JSON de imágenes
     return {
