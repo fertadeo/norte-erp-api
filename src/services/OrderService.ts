@@ -149,32 +149,6 @@ export class OrderService {
     }
   }
 
-      if (!order) {
-        return {
-          success: false,
-          message: 'Pedido no encontrado',
-          timestamp: new Date().toISOString()
-        };
-      }
-
-      return {
-        success: true,
-        message: 'Pedido obtenido exitosamente',
-        data: order,
-        timestamp: new Date().toISOString()
-      };
-
-    } catch (error) {
-      console.error('Error getting order by number:', error);
-      return {
-        success: false,
-        message: 'Error al obtener pedido',
-        error: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString()
-      };
-    }
-  }
-
   async getAllOrders(filters: OrderFilters = {}): Promise<ApiResponse> {
     try {
       const result = await this.orderRepository.getAllOrders(filters);
