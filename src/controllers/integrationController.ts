@@ -481,7 +481,7 @@ export class IntegrationController {
         orderItems.push({
           product_id: product.id,
           quantity: item.quantity || 1,
-          unit_price: parseFloat(item.price || product.price.toString())
+          unit_price: parseFloat(String(item.price || item.unit_price || product.price))
         });
       }
 
@@ -500,8 +500,12 @@ export class IntegrationController {
       }
 
       // 3. Preparar datos del pedido
-      // Helper para convertir undefined a null
-      const toNull = (value: any): any => value === undefined ? null : value;
+      // Helper para convertir undefined y strings vacíos a null
+      const toNull = (value: any): any => {
+        if (value === undefined || value === null) return null;
+        if (typeof value === 'string' && value.trim() === '') return null;
+        return value;
+      };
       
       const orderData: CreateOrderData = {
         client_id: client.id,
@@ -517,8 +521,10 @@ export class IntegrationController {
             : customer.display_name || customer.email
         ),
         delivery_phone: toNull(shipping?.phone || customer.phone || billing?.phone),
-        transport_company: toNull(shipping?.method),
-        transport_cost: shipping?.total ? parseFloat(String(shipping.total)) : 0,
+        transport_company: toNull(shipping?.method), // Convierte string vacío "" a null
+        transport_cost: shipping?.total && shipping.total !== '' && shipping.total !== '0.00' 
+          ? parseFloat(String(shipping.total)) 
+          : 0,
         notes: `Pedido desde WooCommerce Mayorista${order_number ? ` - Order #${order_number}` : ''}${woocommerce_order_id ? ` (WC ID: ${woocommerce_order_id})` : ''}${meta_data ? `\n${JSON.stringify(meta_data)}` : ''}`,
         items: orderItems
       };

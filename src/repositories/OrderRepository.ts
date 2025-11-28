@@ -58,6 +58,13 @@ export class OrderRepository {
   // ORDERS - Operaciones principales
   // =====================================================
 
+  // Helper para convertir undefined y strings vacíos a null (MySQL no acepta undefined)
+  private toNull(value: any): any {
+    if (value === undefined || value === null) return null;
+    if (typeof value === 'string' && value.trim() === '') return null;
+    return value;
+  }
+
   async createOrder(data: CreateOrderData, userId: number | null): Promise<Order> {
     const connection = await this.db.getConnection();
     
@@ -67,41 +74,64 @@ export class OrderRepository {
       // Usar order_number personalizado si se proporciona, o generar uno automático
       const orderNumber = data.order_number || await this.generateOrderNumber();
       
-      // Convertir fecha de entrega a formato MySQL
+      // Convertir fecha de entrega a formato MySQL (ya retorna null si no hay fecha)
       const deliveryDate = this.convertToMySQLDate(data.delivery_date);
 
       // Crear pedido (created_by puede ser NULL si no hay usuario)
+      // Convertir todos los undefined a null explícitamente
+      // Preparar todos los valores asegurando que no haya undefined
+      const insertValues = [
+        orderNumber,
+        this.toNull(data.woocommerce_order_id),
+        Number(data.client_id), // Asegurar que sea número
+        data.status || 'pendiente_preparacion',
+        this.toNull(deliveryDate), // Asegurar que no sea undefined
+        this.toNull(data.delivery_address),
+        this.toNull(data.delivery_city),
+        this.toNull(data.delivery_contact),
+        this.toNull(data.delivery_phone),
+        this.toNull(data.transport_company),
+        data.transport_cost !== undefined && data.transport_cost !== null ? Number(data.transport_cost) : 0,
+        this.toNull(data.notes),
+        userId === undefined || userId === null ? null : Number(userId)
+      ];
+
+      // Validar que no haya undefined en los valores
+      const hasUndefined = insertValues.some(val => val === undefined);
+      if (hasUndefined) {
+        console.error('Valores a insertar:', insertValues);
+        throw new Error('Algunos valores son undefined. Revisar logs.');
+      }
+
       const [result] = await connection.execute(
         `INSERT INTO orders (
           order_number, woocommerce_order_id, client_id, status, delivery_date,
           delivery_address, delivery_city, delivery_contact, delivery_phone,
           transport_company, transport_cost, notes, created_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          orderNumber,
-          data.woocommerce_order_id || null,
-          data.client_id,
-          data.status || 'pendiente_preparacion',
-          deliveryDate,
-          data.delivery_address || null,
-          data.delivery_city || null,
-          data.delivery_contact || null,
-          data.delivery_phone || null,
-          data.transport_company || null,
-          data.transport_cost || 0,
-          data.notes || null,
-          userId || null
-        ]
+        insertValues
       );
 
       const orderId = (result as any).insertId;
+
+      if (!orderId) {
+        throw new Error('No se pudo obtener el ID del pedido creado');
+      }
 
       // Calcular total_amount del pedido
       let totalAmount = 0;
 
       // Crear items del pedido
       for (const item of data.items) {
-        const totalPrice = item.quantity * item.unit_price;
+        // Validar que product_id existe
+        if (!item.product_id || isNaN(Number(item.product_id))) {
+          throw new Error(`Product ID inválido en item: ${JSON.stringify(item)}`);
+        }
+
+        // Asegurar que quantity y unit_price no sean undefined o NaN
+        const quantity = item.quantity && !isNaN(Number(item.quantity)) ? Number(item.quantity) : 1;
+        const unitPrice = item.unit_price && !isNaN(Number(item.unit_price)) ? Number(item.unit_price) : 0;
+        const totalPrice = quantity * unitPrice;
         totalAmount += totalPrice;
 
         await connection.execute(
@@ -109,13 +139,13 @@ export class OrderRepository {
             order_id, product_id, quantity, unit_price, total_price, batch_number, notes
           ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
-            orderId,
-            item.product_id,
-            item.quantity,
-            item.unit_price,
-            totalPrice,
-            item.batch_number,
-            item.notes
+            Number(orderId), // Asegurar que sea número
+            Number(item.product_id), // Asegurar que sea número
+            Number(quantity), // Asegurar que sea número
+            Number(unitPrice), // Asegurar que sea número
+            Number(totalPrice), // Asegurar que sea número
+            this.toNull(item.batch_number),
+            this.toNull(item.notes)
           ]
         );
       }
