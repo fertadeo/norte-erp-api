@@ -500,20 +500,25 @@ export class IntegrationController {
       }
 
       // 3. Preparar datos del pedido
+      // Helper para convertir undefined a null
+      const toNull = (value: any): any => value === undefined ? null : value;
+      
       const orderData: CreateOrderData = {
         client_id: client.id,
         order_number: order_number ? `WC-${order_number}` : undefined, // Prefijo WC- para identificar pedidos de WooCommerce
-        woocommerce_order_id: woocommerce_order_id || undefined,
+        woocommerce_order_id: woocommerce_order_id ? parseInt(String(woocommerce_order_id), 10) : undefined,
         status: 'pendiente_preparacion',
-        delivery_date: shipping?.delivery_date || order_date,
-        delivery_address: shipping?.address_1 || billing?.address_1,
-        delivery_city: shipping?.city || billing?.city,
-        delivery_contact: shipping?.first_name && shipping?.last_name
-          ? `${shipping.first_name} ${shipping.last_name}`
-          : customer.display_name || customer.email,
-        delivery_phone: shipping?.phone || customer.phone || billing?.phone,
-        transport_company: shipping?.method || null,
-        transport_cost: shipping?.total ? parseFloat(shipping.total) : 0,
+        delivery_date: shipping?.delivery_date || order_date || undefined,
+        delivery_address: toNull(shipping?.address_1 || billing?.address_1),
+        delivery_city: toNull(shipping?.city || billing?.city),
+        delivery_contact: toNull(
+          shipping?.first_name && shipping?.last_name
+            ? `${shipping.first_name} ${shipping.last_name}`
+            : customer.display_name || customer.email
+        ),
+        delivery_phone: toNull(shipping?.phone || customer.phone || billing?.phone),
+        transport_company: toNull(shipping?.method),
+        transport_cost: shipping?.total ? parseFloat(String(shipping.total)) : 0,
         notes: `Pedido desde WooCommerce Mayorista${order_number ? ` - Order #${order_number}` : ''}${woocommerce_order_id ? ` (WC ID: ${woocommerce_order_id})` : ''}${meta_data ? `\n${JSON.stringify(meta_data)}` : ''}`,
         items: orderItems
       };
